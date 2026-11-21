@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Флешка мастера</title>
+<style>
+:root{--bg:#eef2f8;--p:#fff;--fg:#10223f;--m:#51617c;--l:#c9d3e3;--a:#1b3f8f;--ok:#0b6b3a;--bad:#a11}
+@media(prefers-color-scheme:dark){:root{--bg:#081329;--p:#0d1f42;--fg:#e8eefc;--m:#9db0d3;--l:#25407a;--a:#e8eefc;--ok:#6be3a0;--bad:#ff8a8a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;padding:20px}
+.w{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{margin:0;font-size:1.3rem}.box{background:var(--p);border:1px solid var(--l);padding:12px}
+.row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--l)}
+.row:first-child{border-top:0}.row small{display:block;color:var(--m)}
+button,a.b{font:inherit;background:var(--a);color:var(--bg);border:0;padding:9px 14px;cursor:pointer;text-decoration:none}
+.bar{height:6px;background:var(--l);margin-top:6px}.bar i{display:block;height:100%;width:0;background:var(--ok)}
+#st{color:var(--m)}.ok{color:var(--ok)}.bad{color:var(--bad)}
+</style></head><body><div class="w">
+<h1>Флешка мастера</h1>
+<div class="box"><b>1. Флешка</b><p id="st">Не выбрана. Выберите корень флешки с Ventoy.</p><button id="pick">Выбрать флешку</button></div>
+<div class="box"><b>2. Скачать на флешку</b><div id="list"></div></div>
+<div class="box"><b>3. Телефоны и планшеты</b>
+<p>Подключите устройство кабелем, включите «Отладку по USB» (или загрузите в fastboot).</p>
+<button id="tools">Установить adb и fastboot</button> <button id="det">Определить устройство</button>
+<p id="dm"></p><button id="chk">Проверить устройство (GSI, Windows, Linux)</button>
+<div id="gsi"></div><br><a class="b" href="index.html">Каталог моделей и прошивок</a></div>
+</div>
+<script>
+var root=null;
+var ITEMS=[
+{id:"mint",n:"Linux Mint 22.3 Cinnamon",d:"Скачивается прямо на флешку (около 3 ГБ), сумма сверяется.",
+ url:"https://ftp.nl.freebsd.org/os/Linux/distr/linuxmint/iso/stable/22.3/linuxmint-22.3-cinnamon-64bit.iso",
+ name:"linuxmint-22.3-cinnamon-64bit.iso",folder:"ISO/2-Linux",sha:"a081ab202cfda17f6924128dbd2de8b63518ac0531bcfe3f1a1b88097c459bd4"},
+{id:"w11",n:"Windows 11",d:"Microsoft даёт только временные ссылки: откроется официальная страница, образ положите в ISO/1-Windows.",page:"https://www.microsoft.com/software-download/windows11"},
+{id:"w10",n:"Windows 10",d:"Официальная страница Microsoft, образ в ISO/1-Windows.",page:"https://www.microsoft.com/software-download/windows10"},
+{id:"ubu",n:"Ubuntu",d:"Официальная страница, образ в ISO/2-Linux.",page:"https://ubuntu.com/download/desktop"},
+{id:"kali",n:"Kali Linux",d:"Официальная страница, образ в ISO/3-Security.",page:"https://www.kali.org/get-kali/"},
+{id:"hiren",n:"Hiren's BootCD PE",d:"Официальная страница, образ в ISO/4-Repair.",page:"https://www.hirensbootcd.org/download/"}];
+var $=function(i){return document.getElementById(i)},F=window.flashka;
+if(!F){
+ var NB="Эта кнопка работает только в программе для ПК (Windows). В браузере доступен просмотр и ссылки.";
+ F={onProgress:function(){},open:function(u){window.open(u,"_blank","noopener")},
+  pickStick:function(){$("st").textContent=NB;return Promise.resolve(null)},
+  download:function(){return Promise.resolve({ok:false,error:NB})},
+  installTools:function(){return Promise.resolve({ok:false})},
+  detect:function(){return Promise.resolve({error:"nobridge"})},
+  inspect:function(){return Promise.resolve({error:"nobridge"})}};
+ var bn=document.createElement("div");bn.className="box";bn.textContent="Страница открыта в браузере: показ и ссылки работают, а выбор флешки, скачивание и определение устройства только в программе для ПК.";
+ document.querySelector(".w").insertBefore(bn,document.querySelector(".w").children[1]);
+}
+ITEMS.forEach(function(it){
+ var r=document.createElement("div");r.className="row";
+ r.innerHTML="<div><b>"+it.n+"</b><small>"+it.d+'</small><div class="bar"><i id="p-'+it.id+'"></i></div><small id="m-'+it.id+'"></small></div>';
+ var b=document.createElement("button");b.textContent=it.page?"Открыть страницу":"Скачать на флешку";
+ b.onclick=function(){
+  if(it.page){F.open(it.page);return}
+  if(!root){$("st").textContent="Сначала выберите флешку.";return}
+  $("m-"+it.id).textContent="Скачиваю…";b.disabled=true;
+  F.download({id:it.id,url:it.url,name:it.name,folder:it.folder,root:root,sha256:it.sha}).then(function(r){
+   b.disabled=false;var m=$("m-"+it.id);
+   if(!r.ok){m.className="bad";m.textContent="Ошибка: "+r.error;return}
+   m.className=r.match===false?"bad":"ok";
+   m.textContent=r.match===false?"Сумма НЕ совпала, скачайте заново":"Готово"+(r.match?", сумма совпала":"");
+  });
+ };
+ r.appendChild(b);$("list").appendChild(r);
+});
+F.onProgress(function(d){$("p-"+d.id).style.width=d.p+"%"});
+$("pick").onclick=function(){F.pickStick().then(function(p){if(p){root=p;$("st").textContent="Выбрана: "+p}})};
+$("tools").onclick=function(){$("dm").textContent="Скачиваю platform-tools от Google…";F.installTools().then(function(r){$("dm").textContent=r.ok?"Готово. Подключите устройство и нажмите «Определить».":"Не удалось скачать. Проверьте интернет."})};
+var E={notools:"adb и fastboot не найдены: нажмите «Установить adb и fastboot».",unauthorized:"Подтвердите «Разрешить отладку» на экране устройства и нажмите снова.",nobridge:"Эта функция работает только в программе для ПК.",nodevice:"Устройство не найдено. Проверьте кабель и отладку по USB."};
+$("det").onclick=function(){$("dm").textContent="Ищу…";F.detect().then(function(r){
+ $("dm").textContent=r.error?E[r.error]:"Найдено: "+[r.brand,r.model,"("+r.device+")"].filter(Boolean).join(" ")});};
+$("chk").onclick=function(){var g=$("gsi");g.textContent="Проверяю…";F.inspect().then(function(r){
+ if(r.error){g.textContent=E[r.error];return}
+ var arm64=/arm64/.test(r.abi),first=parseInt(r.first||"0",10),treble=r.treble==="true";
+ var h="<p><b>"+[r.brand,r.model].join(" ")+"</b>, Android "+r.android+", "+r.abi+(r.ab?", A/B":", A-only")+"</p>";
+ if(treble&&arm64&&first>=26){
+  h+='<p class="ok">Подходит для универсальной прошивки (GSI): Treble включён, 64-бит.</p>'+
+  "<p>Нужен образ GSI <b>arm64</b>, вариант <b>"+(r.ab?"A/B":"A-only")+"</b>. Порядок: разблокировать загрузчик (данные сотрутся), прошить образ по официальной инструкции Google. Это рискованно: возможен «кирпич», у Samsung после разблокировки навсегда отключается Knox.</p>"+
+  '<button id="g1">Инструкция и образы GSI от Google</button> ';
+ }else{
+  h+='<p class="bad">Универсальная прошивка не подойдёт'+(treble?"":" (нет Treble)")+(arm64?"":" (не 64-бит ARM)")+".</p>";
+ }
+ var pl=(r.platform||"").toLowerCase(),wmap={msm8998:"Snapdragon 835",sdm845:"Snapdragon 845",msmnile:"Snapdragon 855"};
+ if(wmap[pl]){
+  h+='<p class="ok">Windows на телефоне: процессор '+wmap[pl]+' есть в списке проекта Renegade. Windows ARM64 поставить можно, но это для опытных: у каждой модели свой UEFI и драйверы, часть функций (касание, связь) может не работать, данные сотрутся.</p><button id="w1">Проект Renegade: список и установка</button> ';
+ }else{
+  h+='<p class="bad">Windows ARM на этот процессор'+(pl?" ("+pl+")":"")+" не поддерживается проектом Renegade.</p>";
+ }
+ h+='<p>Windows-программы без прошивки: Winlator (Android) или удалённый рабочий стол.</p><button id="w2">Winlator</button> ';
+ h+='<p>Безопасный вариант для любой модели: Linux без прошивки.</p><button id="g2">Termux (Linux на Android)</button> <button id="g3">Заводская прошивка и поддержка</button>';
+ g.innerHTML=h;
+ if($("g1"))$("g1").onclick=function(){F.open("https://developer.android.com/topic/generic-system-image")};
+ if($("w1"))$("w1").onclick=function(){F.open("https://renegade-project.tech/en/install")};
+ $("w2").onclick=function(){F.open("https://github.com/brunodev85/winlator")};
+ $("g2").onclick=function(){F.open("https://f-droid.org/packages/com.termux/")};
+ $("g3").onclick=function(){F.open("https://xdaforums.com/")};
+})};
+</script></body></html>
