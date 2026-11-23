@@ -28,10 +28,11 @@ var ITEMS=[
 {id:"mint",n:"Linux Mint 22.3 Cinnamon",d:"Скачивается прямо на флешку (около 3 ГБ), сумма сверяется.",
  url:"https://ftp.nl.freebsd.org/os/Linux/distr/linuxmint/iso/stable/22.3/linuxmint-22.3-cinnamon-64bit.iso",
  name:"linuxmint-22.3-cinnamon-64bit.iso",folder:"ISO/2-Linux",sha:"a081ab202cfda17f6924128dbd2de8b63518ac0531bcfe3f1a1b88097c459bd4"},
-{id:"w11",n:"Windows 11",d:"Microsoft даёт только временные ссылки: откроется официальная страница, образ положите в ISO/1-Windows.",page:"https://www.microsoft.com/software-download/windows11"},
-{id:"w10",n:"Windows 10",d:"Официальная страница Microsoft, образ в ISO/1-Windows.",page:"https://www.microsoft.com/software-download/windows10"},
-{id:"ubu",n:"Ubuntu",d:"Официальная страница, образ в ISO/2-Linux.",page:"https://ubuntu.com/download/desktop"},
-{id:"kali",n:"Kali Linux",d:"Официальная страница, образ в ISO/3-Security.",page:"https://www.kali.org/get-kali/"},
+{id:"w11",n:"Windows 11",d:"Программа берёт свежую официальную ссылку у Microsoft (через Fido) и скачивает ISO (около 7 ГБ) на флешку.",folder:"ISO/1-Windows",fido:{win:"11"}},
+{id:"w10",n:"Windows 10",d:"Через Fido, как Windows 11. Поддержка Windows 10 закончилась в октябре 2025 года.",folder:"ISO/1-Windows",fido:{win:"10"}},
+{id:"ubu",n:"Ubuntu 26.04 LTS (последняя)",d:"Качает свежий образ с официального сервера Ubuntu (около 6 ГБ), сумма сверяется.",folder:"ISO/2-Linux",resolve:{base:"https://releases.ubuntu.com/26.04/",sums:"SHA256SUMS",re:"ubuntu-[0-9.]+-desktop-amd64\\.iso"}},
+{id:"deb",n:"Debian Live (Xfce)",d:"Лёгкий Debian с рабочим столом, официальный сервер (около 3,6 ГБ), сумма сверяется.",folder:"ISO/2-Linux",resolve:{base:"https://cdimage.debian.org/debian-cd/current-live/amd64/iso-hybrid/",sums:"SHA256SUMS",re:"debian-live-[0-9.]+-amd64-xfce\\.iso"}},
+{id:"kali",n:"Kali Linux (последняя версия)",d:"Находит актуальный образ на официальном сервере и скачивает на флешку (около 4 ГБ), сумма сверяется.",folder:"ISO/3-Security",resolve:{base:"https://cdimage.kali.org/current/",sums:"SHA256SUMS",re:"kali-linux-[0-9.]+-installer-amd64\\.iso"}},
 {id:"hiren",n:"Hiren's BootCD PE",d:"Официальная страница, образ в ISO/4-Repair.",page:"https://www.hirensbootcd.org/download/"}];
 var $=function(i){return document.getElementById(i)},F=window.flashka;
 if(!F){
@@ -53,7 +54,7 @@ ITEMS.forEach(function(it){
   if(it.page){F.open(it.page);return}
   if(!root){$("st").textContent="Сначала выберите флешку.";return}
   $("m-"+it.id).textContent="Скачиваю…";b.disabled=true;
-  F.download({id:it.id,url:it.url,name:it.name,folder:it.folder,root:root,sha256:it.sha}).then(function(r){
+  F.download({id:it.id,url:it.url,name:it.name,folder:it.folder,root:root,sha256:it.sha,resolve:it.resolve,fido:it.fido}).then(function(r){
    b.disabled=false;var m=$("m-"+it.id);
    if(!r.ok){m.className="bad";m.textContent="Ошибка: "+r.error;return}
    m.className=r.match===false?"bad":"ok";
