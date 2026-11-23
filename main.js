@@ -25,6 +25,17 @@ function get(url, dest, onP, left = 5) {
     }).on('error', reject);
   });
 }
+function getText(url, left = 5) {
+  return new Promise((resolve, reject) => {
+    https.get(url, r => {
+      if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && left > 0) {
+        r.resume(); return resolve(getText(new URL(r.headers.location, url).href, left - 1));
+      }
+      if (r.statusCode !== 200) { r.resume(); return reject(new Error('HTTP ' + r.statusCode)); }
+      let s = ''; r.setEncoding('utf8'); r.on('data', c => s += c); r.on('end', () => resolve(s));
+    }).on('error', reject);
+  });
+}
 async function detect() {
   const a = await run(bin('adb'), ['devices']);
   if (a.e && a.e.code === 'ENOENT') return { error: 'notools' };
@@ -75,6 +86,26 @@ ipcMain.handle('pickStick', async () => {
 });
 ipcMain.handle('download', async (ev, o) => {
   try {
+    if (o.fido) {
+      const fp = path.join(app.getPath('userData'), 'Fido.ps1');
+      fs.mkdirSync(path.dirname(fp), { recursive: true });
+      await get('https://raw.githubusercontent.com/pbatard/Fido/master/Fido.ps1', fp);
+      const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', fp, '-Win', o.fido.win, '-Rel', 'Latest', '-Lang', 'Russian', '-Arch', 'x64', '-GetUrl'];
+      const r = await run('powershell.exe', args, 120000);
+      const u = r.out.split(/\r?\n/).map(s => s.trim()).find(s => /^https:\/\//.test(s));
+      if (!u) throw new Error('Microsoft не выдал ссылку (возможно, блок по региону). Ответ: ' + r.out.trim().slice(0, 300));
+      o.url = u; o.name = decodeURIComponent(new URL(u).pathname.split('/').pop());
+    }
+    if (o.resolve) {
+      const txt = await getText(o.resolve.base + o.resolve.sums);
+      const re = new RegExp('^([0-9a-f]{64})\\s+\\*?(' + o.resolve.re + ')\\s*$', 'gmi');
+      const ver = s => ((s.match(/\d+(?:\.\d+)+/) || ['0'])[0]).split('.').map(Number);
+      const cmp = (a, b) => { const x = ver(a[2]), y = ver(b[2]); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
+      const all = [...txt.matchAll(re)].sort(cmp);
+      if (!all.length) throw new Error('Не нашёл актуальный образ на сервере');
+      const mt = all[all.length - 1];
+      o.sha256 = mt[1]; o.name = mt[2]; o.url = o.resolve.base + mt[2];
+    }
     const dir = path.join(o.root, ...o.folder.split('/'));
     fs.mkdirSync(dir, { recursive: true });
     const hash = await get(o.url, path.join(dir, o.name), p => ev.sender.send('progress', { id: o.id, p }));
